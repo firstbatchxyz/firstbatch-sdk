@@ -1,24 +1,23 @@
 from __future__ import annotations
-from typing import List
+from typing import List, TYPE_CHECKING
 
-import numpy as np
-
-try:
-    import nanopq
-except ImportError:
-    raise ImportError("Please install nanopq to use ProductQuantizer")
 from firstbatch.lossy.base import BaseLossy, CompressedVector
 from firstbatch.vector_store.schema import Vector
+
+if TYPE_CHECKING:
+    import nanopq
 
 
 class ProductQuantizer(BaseLossy):
     """Product quantizer algorithm."""
-    try:
-        import numpy as np
-    except ImportError:
-        raise ImportError("Please install numpy to use ProductQuantizer")
 
     def __init__(self, cluster_size: int = 256, subquantizer_size: int = 32, verbose=False):
+        try:
+            import numpy as np
+            import nanopq
+        except ImportError:
+            raise ImportError("Please install numpy && nanopq to use ProductQuantizer")
+
         self.data = None
         self.m = subquantizer_size
         self.ks = cluster_size
