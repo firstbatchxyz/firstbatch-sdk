@@ -2,7 +2,7 @@
 
 ## Getting Started
 
-1. **Installation**
+1. **Installation (Not available yet)**
     ```bash
     pip install firstbatch-sdk
     ```
