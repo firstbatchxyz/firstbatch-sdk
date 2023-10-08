@@ -17,7 +17,7 @@ def setup():
 
     cfg = Config(embedding_size=1536, batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
                  enable_history=True, verbose=True)
-    personalized = FirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], **cfg.to_dict())
+    personalized = FirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], config=cfg)
     personalized.add_vdb("pinecone_db_rss", Pinecone(index))
 
     return personalized, "pinecone_db_rss"

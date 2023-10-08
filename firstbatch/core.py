@@ -28,7 +28,7 @@ from firstbatch.client import (
     sampled_batch_request,
     update_state_request
 )
-
+from firstbatch.utils import Config
 from firstbatch.constants import (
     DEFAULT_VERBOSE,
     DEFAULT_HISTORY,
@@ -47,11 +47,11 @@ from firstbatch.logger_conf import setup_logger
 
 class FirstBatch(FirstBatchClient):
 
-    def __init__(self, api_key: str, **kwargs):
+    def __init__(self, api_key: str, config: Config):
         """
         Initialize the FirstBatch class
         :param api_key:
-        :param kwargs:
+        :param config:
         """
         super().__init__(api_key)
         self.store: defaultdict[str, VectorStore] = defaultdict(VectorStore)
@@ -64,24 +64,24 @@ class FirstBatch(FirstBatchClient):
         self.logger = setup_logger()
         self.logger.setLevel(logging.ERROR)
 
-        if kwargs["embedding_size"] is not None:
-            self._embedding_size = kwargs["embedding_size"]
-        if kwargs["batch_size"] is not None:
-            self._batch_size = kwargs["batch_size"]
-        if kwargs["quantizer_train_size"] is not None:
-            self._quantizer_train_size = kwargs["quantizer_train_size"]
-        if kwargs["quantizer_type"] is not None:
-            # Product not supported yet
-            # self._quantizer_type = kwargs["quantizer_type"]
-            self._quantizer_type = "scalar"
-        if kwargs["enable_history"] is not None:
-            self._enable_history = kwargs["enable_history"]
-        if kwargs["verbose"] is not None:
-            if kwargs["verbose"]:
-                self._verbose = kwargs["verbose"]
+        if config.verbose is not None:
+            if config.verbose:
+                self._verbose = config.verbose
                 self.logger.setLevel(logging.DEBUG)
             else:
                 self.logger.setLevel(logging.WARN)
+        if config.embedding_size is not None:
+            self._embedding_size = config.embedding_size
+        if config.batch_size is not None:
+            self._batch_size = config.batch_size
+        if config.quantizer_train_size is not None:
+            self._quantizer_train_size = config.quantizer_train_size
+        if config.quantizer_type is not None:
+            self.logger.debug("Product type quantizer is not supported yet.")
+            # self._quantizer_type = kwargs["quantizer_type"]
+            self._quantizer_type = "scalar"
+        if config.enable_history is not None:
+            self._enable_history = config.enable_history
 
         self.logger.debug("Set mode to verbose")
 

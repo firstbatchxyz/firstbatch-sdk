@@ -14,9 +14,9 @@ def setup():
     pinecone.describe_index(index_name)
     index = pinecone.Index(index_name)
 
-    cfg = Config(embedding_size=1536, batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
+    config = Config(embedding_size=1536, batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
                  enable_history=True, verbose=True)
-    personalized = AsyncFirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], **cfg.to_dict())
+    personalized = AsyncFirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], config=config)
     return personalized, index
 
 
