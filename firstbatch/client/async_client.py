@@ -237,3 +237,7 @@ class AsyncFirstBatchClient(BaseClient):
             return response["data"]
         except ValidationError as e:
             raise e
+
+    @staticmethod
+    def _mock_history() -> GetHistoryResponse:
+        return GetHistoryResponse(ids=[])

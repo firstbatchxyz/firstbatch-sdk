@@ -54,5 +54,10 @@ class BaseClient(ABC):
     def _get_blueprint(self, id: str) -> Any:
         ...
 
+    @staticmethod
+    @abstractmethod
+    def _mock_history() -> Any:
+        ...
+
 
 

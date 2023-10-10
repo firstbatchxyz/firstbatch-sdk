@@ -149,7 +149,7 @@ class FirstBatch(FirstBatchClient):
 
             else:
                 req = session_request(**{"id": session_id, "algorithm": "FACTORY", "vdbid": vdbid,
-                                         "factory_id": algorithm.name})
+                                         "factory_id": algorithm.value})
 
         return self._create_session(req)
 
@@ -192,6 +192,7 @@ class FirstBatch(FirstBatchClient):
 
         self.logger.debug("{} {}".format(batch_type,params.to_dict()))
 
+        history = self._mock_history()
         if self._enable_history:
             history = self._get_history(session_id)
 

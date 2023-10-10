@@ -192,6 +192,7 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
 
         self.logger.debug(batch_type)
 
+        history = self._mock_history()
         if self._enable_history:
             history = await self._get_history(session_id)
 

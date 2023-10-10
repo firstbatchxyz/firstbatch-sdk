@@ -10,7 +10,7 @@ from pydantic import (
     StrictStr,
 )
 from pydantic.fields import FieldInfo
-from pydantic.error_wrappers import ValidationError
+from pydantic import ValidationError
 
 
 __all__ = [
