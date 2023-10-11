@@ -155,6 +155,7 @@ class FirstBatch(FirstBatchClient):
 
     def add_signal(self, session_id: str, user_action: UserAction, cid: str):
         response = self._get_session(session_id)
+
         vs = self.store[response.vdbid]
 
         if not isinstance(user_action.action_type, SignalType):
@@ -182,6 +183,7 @@ class FirstBatch(FirstBatchClient):
         response = self._get_session(session_id)
         vs = self.store[response.vdbid]
 
+        self.logger.debug("Session: {} {} {}".format(response.algorithm, response.factory_id, response.custom_id))
         if batch_size is None:
             batch_size = self._batch_size
 

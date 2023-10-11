@@ -182,6 +182,7 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
         response = await self._get_session(session_id)
         vs = self.store[response.vdbid]
 
+        self.logger.debug("Session: {} {} {}".format(response.algorithm, response.factory_id, response.custom_id))
         if batch_size is None:
             batch_size = self._batch_size
 
