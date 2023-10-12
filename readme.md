@@ -4,7 +4,7 @@
 
 1. **Installation (Not available yet)**
     ```bash
-    pip install firstbatch-sdk
+    pip install firstbatch
     ```
 
 2. **Initialize VectorDB of your choice**
@@ -34,21 +34,14 @@
    personalized.add_signal(session_id, UserAction(Signal.LIKE), ids[user_pick])
    ```
 
-## API Reference
-
-For full API documentation, visit [API Docs](your_documentation_url_here).
-
 ## Support
 
-For any issues or queries, refer to our [Support Page](your_support_page_url_here) or contact `support@firstbatch.com`.
+For any issues or queries contact `support@firstbatch.com`.
 
-## License
-
-FirstBatch SDK is licensed under [MIT License](your_license_url_here).
   
 ## Resources
 
-- [User Embedding Guide](your_guide_url_here)
-- [API Documentation](your_documentation_url_here)
+- [User Embedding Guide](https://firstbatch.gitbook.io/user-embeddings/)
+- [SDK Documentation](https://firstbatch.gitbook.io/firstbatch-sdk/)
 
 Feel free to dive into the technicalities and leverage FirstBatch SDK for highly personalized user experiences.

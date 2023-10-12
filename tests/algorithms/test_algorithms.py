@@ -97,7 +97,6 @@ def test_custom(setup):
 
     personalized, vdbid = setup
     session = personalized.session(algorithm=AlgorithmLabel.CUSTOM, vdbid=vdbid, custom_id="7e0d17f5-da33-4534-b205-8873bc62a485")
-    personalized.user_embeddings(session.data)
     ids, batch = [], []
 
     while not action_queue.empty():
