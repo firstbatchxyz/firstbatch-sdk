@@ -1,6 +1,6 @@
 """Constants for the firstbatch package."""
 
-BASE_URL = "http://0.0.0.0:8080/"
+BASE_URL = "https://aws-eu-central-1.hollowdb.xyz/embeddings/"
 
 DEFAULT_QUANTIZER_TRAIN_SIZE = 100
 DEFAULT_QUANTIZER_TYPE = "scalar"

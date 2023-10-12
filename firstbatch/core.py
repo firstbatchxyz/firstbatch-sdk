@@ -85,8 +85,7 @@ class FirstBatch(FirstBatchClient):
 
         self.logger.debug("Set mode to verbose")
 
-    def add_vdb(self, vdbid: str, vs: VectorStore,
-                embedding_size: Optional[int] = None):
+    def add_vdb(self, vdbid: str, vs: VectorStore, embedding_size: Optional[int] = None):
         """
         Add a vector store to the container
         :param vdbid: VectorDB ID of your choice, str
@@ -122,6 +121,9 @@ class FirstBatch(FirstBatchClient):
             self.store[vdbid] = vs
 
     def user_embeddings(self, session_id: str):
+        """
+        :param session_id: Session_id, str
+        """
         return self._get_user_embeddings(session_id)
 
     def _get_state(self, session_id: str):
@@ -129,6 +131,12 @@ class FirstBatch(FirstBatchClient):
 
     def session(self, algorithm: AlgorithmLabel, vdbid: str, session_id: Optional[str] = None,
                 custom_id: Optional[str] = None):
+        """
+        :param algorithm: Algorithm type of session, SIMPLE | CUSTOM | FACTORY types, AlgorithmLabel
+        :param vdbid: VectorStore id, str
+        :param session_id: Session id, Optional[str]
+        :param custom_id: Custom Algorithm ID, obtained from the dashboard. Used only with CUSTOM algorithm, str
+        """
 
         if session_id is None:
             if algorithm == AlgorithmLabel.SIMPLE:
@@ -180,6 +188,10 @@ class FirstBatch(FirstBatchClient):
         return resp.success
 
     def batch(self, session_id: str, batch_size: Optional[int] = None, **kwargs):
+        """
+        :param session_id: Session id, str
+        :param batch_size: batch size, if used, will override global batch size, Optional[int]
+        """
         response = self._get_session(session_id)
         vs = self.store[response.vdbid]
 
