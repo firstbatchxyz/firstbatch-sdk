@@ -2,7 +2,7 @@ import requests
 from typing import List, Dict, Union, Optional, Any, cast
 from pydantic import ValidationError
 import hashlib
-from firstbatch.constants import BASE_URL
+from firstbatch.constants import regions, REGION_URL
 from firstbatch.client.schema import APIResponse, BatchResponse, GetSessionResponse, GetHistoryResponse
 from firstbatch.client.schema import AddHistoryRequest, CreateSessionRequest, SignalRequest, BiasedBatchRequest,\
     SampledBatchRequest, UpdateStateRequest, FirstBatchAPIError
@@ -12,6 +12,8 @@ from firstbatch.client.base import BaseClient
 class FirstBatchClient(BaseClient):
     def __init__(self, api_key: str):
         self.api_key = api_key
+        self.url: str = ""
+        self.team_id: str = ""
         self.headers = {
             "x-api-key": self.api_key,
             "Content-Type": "application/json"
@@ -22,6 +24,11 @@ class FirstBatchClient(BaseClient):
         if response.status_code != 200:
             raise FirstBatchAPIError(
                 f"FirstBatch API error with code {response.status_code} in {func_name} with reason: {response.reason}")
+
+    def __id_wrapper(self, id: Union[str, None]):
+        if isinstance(id, str):
+            return self.team_id + "-" + id
+        return id
 
     def _init_vectordb_scalar(self, key: str, vdbid: str, vecs: List[List[int]], quantiles: List[float]) -> Any:
 
@@ -36,7 +43,7 @@ class FirstBatchClient(BaseClient):
             "quantized_vecs": vecs,
             "quantiles": quantiles
         }
-        response = requests.post(BASE_URL + "embeddings/init_vdb", headers=self.headers, json=data)
+        response = requests.post(self.url + "embeddings/init_vdb", headers=self.headers, json=data)
         self.__error_check(response, "init_vectordb_scalar")
         try:
             return APIResponse(**response.json())
@@ -45,10 +52,10 @@ class FirstBatchClient(BaseClient):
 
     def _add_history(self, req: AddHistoryRequest) -> Any:
         data = {
-            "id": req.id,
+            "id": self.__id_wrapper(req.id),
             "ids": req.ids
         }
-        response = requests.post(BASE_URL + "embeddings/update_history", headers=self.headers, json=data)
+        response = requests.post(self.url + "embeddings/update_history", headers=self.headers, json=data)
         self.__error_check(response, "add_history")
         try:
             return APIResponse(**response.json())
@@ -56,9 +63,9 @@ class FirstBatchClient(BaseClient):
             raise e
 
     def _create_session(self, req: CreateSessionRequest) -> APIResponse:
-        data = {"id": req.id, "algorithm": req.algorithm, "vdbid": req.vdbid,
+        data = {"id": self.__id_wrapper(req.id), "algorithm": req.algorithm, "vdbid": req.vdbid,
                 "custom_id": req.custom_id, "factory_id": req.factory_id, "has_embeddings": req.has_embeddings}
-        response = requests.post(BASE_URL + "embeddings/create_session", headers=self.headers, json=data)
+        response = requests.post(self.url + "embeddings/create_session", headers=self.headers, json=data)
         self.__error_check(response, "create_session")
         try:
             return APIResponse(**response.json())
@@ -67,8 +74,8 @@ class FirstBatchClient(BaseClient):
             raise e
 
     def _update_state(self, req: UpdateStateRequest) -> APIResponse:
-        data = {"id":req.id, "state":req.state}
-        response = requests.post(BASE_URL + "embeddings/update_state", headers=self.headers, json=data)
+        data = {"id": self.__id_wrapper(req.id), "state":req.state}
+        response = requests.post(self.url + "embeddings/update_state", headers=self.headers, json=data)
         self.__error_check(response, "update_state")
         try:
             return APIResponse(**response.json())
@@ -78,12 +85,12 @@ class FirstBatchClient(BaseClient):
 
     def _signal(self, req: SignalRequest) -> APIResponse:
         data = {
-            "id": req.id,
+            "id": self.__id_wrapper(req.id),
             "vector": req.vector,
             "signal": req.signal,
             "state": req.state
         }
-        response = requests.post(BASE_URL + "embeddings/signal", headers=self.headers, json=data)
+        response = requests.post(self.url + "embeddings/signal", headers=self.headers, json=data)
         self.__error_check(response, "signal")
         try:
             return APIResponse(**response.json())
@@ -92,14 +99,14 @@ class FirstBatchClient(BaseClient):
 
     def _biased_batch(self, req: BiasedBatchRequest) -> BatchResponse:
         data = {
-            "id": req.id,
+            "id": self.__id_wrapper(req.id),
             "vdbid": req.vdbid,
             "bias_vectors": req.bias_vectors,
             "bias_weights": req.bias_weights,
             "params": req.params,
             "state": req.state
         }
-        response = requests.post(BASE_URL + "embeddings/biased_batch", headers=self.headers, json=data)
+        response = requests.post(self.url + "embeddings/biased_batch", headers=self.headers, json=data)
         self.__error_check(response, "biased_batch")
 
         try:
@@ -121,13 +128,13 @@ class FirstBatchClient(BaseClient):
 
     def _sampled_batch(self, req: SampledBatchRequest) -> BatchResponse:
         data = {
-            "id": req.id,
+            "id": self.__id_wrapper(req.id),
             "n": req.n,
             "vdbid": req.vdbid,
             "params": req.params,
             "state": req.state
         }
-        response = requests.post(BASE_URL + "embeddings/sampled_batch", headers=self.headers, json=data)
+        response = requests.post(self.url + "embeddings/sampled_batch", headers=self.headers, json=data)
         self.__error_check(response, "sampled_batch")
         try:
             api_response = APIResponse(**response.json()).data
@@ -147,8 +154,8 @@ class FirstBatchClient(BaseClient):
             raise e
 
     def _get_session(self, id: str) -> GetSessionResponse:
-        data = {"id": id}
-        response = requests.post(BASE_URL + "embeddings/get_session", headers=self.headers, json=data)
+        data = {"id": self.__id_wrapper(id)}
+        response = requests.post(self.url + "embeddings/get_session", headers=self.headers, json=data)
         self.__error_check(response, "get_session")
 
         try:
@@ -178,8 +185,8 @@ class FirstBatchClient(BaseClient):
             raise e
 
     def _get_history(self, id: str) -> GetHistoryResponse:
-        data = {"id": id}
-        response = requests.post(BASE_URL + "embeddings/get_history", headers=self.headers, json=data)
+        data = {"id": self.__id_wrapper(id)}
+        response = requests.post(self.url + "embeddings/get_history", headers=self.headers, json=data)
         self.__error_check(response, "get_history")
 
         try:
@@ -194,11 +201,11 @@ class FirstBatchClient(BaseClient):
 
     def _get_user_embeddings(self, id: str, last_n: Optional[int] = None) -> BatchResponse:
 
-        data = {"id": id, "last_n": 50}
+        data = {"id": self.__id_wrapper(id), "last_n": 50}
         if last_n is None:
             data["last_n"] = last_n
 
-        response = requests.post(BASE_URL + "embeddings/get_embeddings", headers=self.headers, json=data)
+        response = requests.post(self.url + "embeddings/get_embeddings", headers=self.headers, json=data)
         self.__error_check(response, "get_user_embeddings")
         try:
             api_response = APIResponse(**response.json()).data
@@ -219,7 +226,7 @@ class FirstBatchClient(BaseClient):
 
     def _vdb_exists(self, vdbid: str) -> bool:
         data = {"vdbid": vdbid}
-        response = requests.post(BASE_URL + "embeddings/vdb_exists", headers=self.headers, json=data)
+        response = requests.post(self.url + "embeddings/vdb_exists", headers=self.headers, json=data)
         self.__error_check(response, "vdb_exists")
         try:
             return response.json()["data"]
@@ -227,8 +234,8 @@ class FirstBatchClient(BaseClient):
             raise e
 
     def _get_blueprint(self, id: str) -> Any:
-        data = {"id": id}
-        response = requests.post(BASE_URL + "embeddings/get_blueprint", headers=self.headers, json=data)
+        data = {"id": self.__id_wrapper(id)}
+        response = requests.post(self.url + "embeddings/get_blueprint", headers=self.headers, json=data)
         self.__error_check(response, "get_blueprint")
         try:
             return response.json()["data"]
@@ -238,3 +245,20 @@ class FirstBatchClient(BaseClient):
     @staticmethod
     def _mock_history() -> GetHistoryResponse:
         return GetHistoryResponse(ids=[])
+
+    def _set_info(self) -> Any:
+        response = requests.get(REGION_URL, headers=self.headers)
+        self.__error_check(response, "team_info")
+
+        try:
+            data = response.json()["data"]
+        except ValidationError as e:
+            raise e
+
+        self.team_id = data["teamID"]
+        region = data["region"]
+        try:
+            self.url = regions[region]
+        except ValueError:
+            raise ValueError("There is no such region {}".format(region))
+

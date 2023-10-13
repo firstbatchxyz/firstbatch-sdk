@@ -1,6 +1,13 @@
 """Constants for the firstbatch package."""
 
-BASE_URL = "https://aws-eu-central-1.hollowdb.xyz/"
+EU_CENTRAL_1 = "https://aws-eu-central-1.hollowdb.xyz/"
+US_WEST_1 = "https://aws-us-west-1.hollowdb.xyz/"
+US_EAST_1 = "https://aws-us-east-1.hollowdb.xyz/"
+ASIA_PACIFIC_1 = "https://aws-ap-southeast-1.hollowdb.xyz/"
+
+regions = {"us-east-1":US_EAST_1, "us-west-1":US_WEST_1, "eu-central-1":EU_CENTRAL_1, "ap-southeast-1": ASIA_PACIFIC_1}
+
+REGION_URL = "https://idp.firstbatch.xyz/v1/teams/team/get-team-information"
 
 DEFAULT_QUANTIZER_TRAIN_SIZE = 100
 DEFAULT_QUANTIZER_TYPE = "scalar"

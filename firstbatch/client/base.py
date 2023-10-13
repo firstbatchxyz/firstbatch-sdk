@@ -59,5 +59,8 @@ class BaseClient(ABC):
     def _mock_history() -> Any:
         ...
 
+    @abstractmethod
+    def _set_info(self) -> Any:
+        ...
 
 

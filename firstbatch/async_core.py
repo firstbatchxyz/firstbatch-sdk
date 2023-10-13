@@ -63,6 +63,7 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
         self._verbose = DEFAULT_VERBOSE
         self.logger = setup_logger()
         self.logger.setLevel(logging.ERROR)
+        self._set_info()
 
         if config.verbose is not None:
             if config.verbose:
