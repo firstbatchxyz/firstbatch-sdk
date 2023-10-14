@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 import logging
 from firstbatch.algorithm import AlgorithmLabel, UserAction, BatchType, BatchEnum, \
-    BaseAlgorithm, AlgorithmRegistry, SignalType
+    BaseAlgorithm, AlgorithmRegistry, SignalType, SessionObject
 from firstbatch.client.schema import GetHistoryResponse
 from firstbatch.vector_store import (
     VectorStore,
@@ -85,15 +85,10 @@ class FirstBatch(FirstBatchClient):
             self._enable_history = config.enable_history
 
         self.logger.debug("Set mode to verbose")
+        self.logger.debug("Using: {}".format(self.url))
 
     def add_vdb(self, vdbid: str, vs: VectorStore, embedding_size: Optional[int] = None):
-        """
-        Add a vector store to the container
-        :param vdbid: VectorDB ID of your choice, str
-        :param vs: VectorStore, object
-        :param embedding_size: Embedding size of your collection, if not will use class level embedding size, int
-        :return:
-        """
+
         exists = self._vdb_exists(vdbid)
         embedding_size_ = self._embedding_size if embedding_size is None else embedding_size
         vs.embedding_size = embedding_size_
@@ -121,23 +116,11 @@ class FirstBatch(FirstBatchClient):
         else:
             self.store[vdbid] = vs
 
-    def user_embeddings(self, session_id: str):
-        """
-        :param session_id: Session_id, str
-        """
-        return self._get_user_embeddings(session_id)
-
-    def _get_state(self, session_id: str):
-        return self._get_session(session_id)
+    def user_embeddings(self, session: SessionObject):
+        return self._get_user_embeddings(session)
 
     def session(self, algorithm: AlgorithmLabel, vdbid: str, session_id: Optional[str] = None,
-                custom_id: Optional[str] = None):
-        """
-        :param algorithm: Algorithm type of session, SIMPLE | CUSTOM | FACTORY types, AlgorithmLabel
-        :param vdbid: VectorStore id, str
-        :param session_id: Session id, Optional[str]
-        :param custom_id: Custom Algorithm ID, obtained from the dashboard. Used only with CUSTOM algorithm, str
-        """
+                custom_id: Optional[str] = None) -> SessionObject:
 
         if session_id is None:
             if algorithm == AlgorithmLabel.SIMPLE:
@@ -160,10 +143,10 @@ class FirstBatch(FirstBatchClient):
                 req = session_request(**{"id": session_id, "algorithm": "FACTORY", "vdbid": vdbid,
                                          "factory_id": algorithm.value})
 
-        return self._create_session(req)
+        return SessionObject(id=self._create_session(req).data, is_persistent=(session_id is not None))
 
-    def add_signal(self, session_id: str, user_action: UserAction, cid: str):
-        response = self._get_session(session_id)
+    def add_signal(self, session: SessionObject, user_action: UserAction, cid: str) -> None:
+        response = self._get_session(session)
 
         vs = self.store[response.vdbid]
 
@@ -181,19 +164,14 @@ class FirstBatch(FirstBatchClient):
         # Call blueprint_step to calculate the next state
         (next_state, batch_type, params) = algo_instance.blueprint_step(response.state, user_action)
         # Send signal
-        resp = self._signal(signal_request(session_id, next_state.name, signal_obj))
+        resp = self._signal(signal_request(session, next_state.name, signal_obj))
 
-        if self._enable_history:
-            self._add_history(history_request(session_id, [cid]))
+        if resp.success:
+            if self._enable_history:
+                self._add_history(history_request(session, [cid]))
 
-        return resp.success
-
-    def batch(self, session_id: str, batch_size: Optional[int] = None, **kwargs):
-        """
-        :param session_id: Session id, str
-        :param batch_size: batch size, if used, will override global batch size, Optional[int]
-        """
-        response = self._get_session(session_id)
+    def batch(self, session: SessionObject, batch_size: Optional[int] = None, **kwargs):
+        response = self._get_session(session)
         vs = self.store[response.vdbid]
 
         self.logger.debug("Session: {} {} {}".format(response.algorithm, response.factory_id, response.custom_id))
@@ -209,11 +187,11 @@ class FirstBatch(FirstBatchClient):
 
         history = self._mock_history()
         if self._enable_history:
-            history = self._get_history(session_id)
+            history = self._get_history(session)
 
         if batch_type == BatchType.RANDOM:
             query = random_batch_request(algo_instance.batch_size, self._embedding_size, **params.to_dict())
-            self._update_state(update_state_request(session_id, next_state.name))
+            self._update_state(update_state_request(session, next_state.name))
             batch_response = vs.multi_search(query)
             ids, batch = algo_instance.random_batch(batch_response, query, **params.to_dict())
 
@@ -230,19 +208,19 @@ class FirstBatch(FirstBatchClient):
                 self.logger.debug("No embeddings found for personalized batch. Switching to random batch.")
 
                 query = random_batch_request(algo_instance.batch_size, self._embedding_size, **{"apply_mmr": True})
-                self._update_state(update_state_request(session_id, next_state.name))
+                self._update_state(update_state_request(session, next_state.name))
                 batch_response = vs.multi_search(query)
                 ids, batch = algo_instance.random_batch(batch_response, query, **params.to_dict())
 
             else:
-                batch_response_ = self._biased_batch(biased_batch_request(session_id, response.vdbid, next_state.name,
+                batch_response_ = self._biased_batch(biased_batch_request(session, response.vdbid, next_state.name,
                                                                          params.to_dict(), **kwargs))
                 query = self.__query_wrapper(response.vdbid, algo_instance.batch_size, batch_response_, history, **params.to_dict())
                 batch = vs.multi_search(query)
                 ids, batch = algo_instance.biased_batch(batch, query, **params.to_dict())
 
         elif batch_type == BatchType.SAMPLED:
-            batch_response_ = self._sampled_batch(sampled_batch_request(session_id=session_id, vdbid=response.vdbid,
+            batch_response_ = self._sampled_batch(sampled_batch_request(session=session, vdbid=response.vdbid,
                                                                        state=next_state.name, n_topics=params.n_topics))
             query = self.__query_wrapper(response.vdbid, algo_instance.batch_size, batch_response_, history, **params.to_dict())
             batch = vs.multi_search(query)
@@ -251,7 +229,7 @@ class FirstBatch(FirstBatchClient):
             raise ValueError(f"Invalid batch type: {next_state.batch_type}")
 
         if self._enable_history:
-            self._add_history(history_request(session_id, ids[:algo_instance.batch_size]))
+            self._add_history(history_request(session, ids[:algo_instance.batch_size]))
 
         return ids, batch
 

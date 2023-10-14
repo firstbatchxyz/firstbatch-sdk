@@ -28,15 +28,15 @@ async def test_async_simple(setup):
         action_queue.put(h)
 
     personalized, index = setup
-    await personalized.add_vdb("pinecone_db_rss", Pinecone(index))
-    session = await personalized.session(algorithm=AlgorithmLabel.SIMPLE, vdbid="pinecone_db_rss")
+    await personalized.add_vdb("db_deneme5", Pinecone(index))
+    session = await personalized.session(algorithm=AlgorithmLabel.SIMPLE, vdbid="db_deneme5")
     ids, batch = [], []
 
     while not action_queue.empty():
         a = action_queue.get()
         if a[0] == "batch":
-            ids, batch = await personalized.batch(session.data)
+            ids, batch = await personalized.batch(session)
         elif a[0] == "signal":
             cid = a[1]
-            await personalized.add_signal(session.data, UserAction(Signal.LIKE), ids[cid])
+            await personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid])
 

@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 import logging
 from firstbatch.algorithm import AlgorithmLabel, UserAction, BatchType, BatchEnum, \
-    BaseAlgorithm, AlgorithmRegistry, SignalType
+    BaseAlgorithm, AlgorithmRegistry, SignalType, SessionObject
 from firstbatch.client.schema import GetHistoryResponse
 from firstbatch.vector_store import (
     VectorStore,
@@ -85,15 +85,10 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
             self._enable_history = config.enable_history
 
         self.logger.debug("Set mode to verbose")
+        self.logger.debug("Using: {}".format(self.url))
 
     async def add_vdb(self, vdbid: str, vs: VectorStore, embedding_size: Optional[int] = None):
-        """
-        Add a vector store to the container
-        :param vdbid: VectorDB ID of your choice, str
-        :param vs: VectorStore, object
-        :param embedding_size: Embedding size of your collection, if not will use class level embedding size, int
-        :return:
-        """
+
         exists = await self._vdb_exists(vdbid)
         embedding_size_ = self._embedding_size if embedding_size is None else embedding_size
         vs.embedding_size = embedding_size_
@@ -121,11 +116,8 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
         else:
             self.store[vdbid] = vs
 
-    async def user_embeddings(self, session_id: str):
-        return self._get_user_embeddings(session_id)
-
-    async def _get_state(self, session_id: str):
-        return self._get_session(session_id)
+    async def user_embeddings(self, session: SessionObject):
+        return self._get_user_embeddings(session)
 
     async def session(self, algorithm: AlgorithmLabel, vdbid: str, session_id: Optional[str] = None,
                 custom_id: Optional[str] = None):
@@ -149,12 +141,13 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
 
             else:
                 req = session_request(**{"id": session_id, "algorithm": "FACTORY", "vdbid": vdbid,
-                                         "factory_id": algorithm.name})
+                                         "factory_id": algorithm.value})
 
-        return await self._create_session(req)
+        session = await self._create_session(req)
+        return SessionObject(id=session.data, is_persistent=(session_id is not None))
 
-    async def add_signal(self, session_id: str, user_action: UserAction, cid: str):
-        response = await self._get_session(session_id)
+    async def add_signal(self, session: SessionObject, user_action: UserAction, cid: str):
+        response = await self._get_session(session)
         vs = self.store[response.vdbid]
 
         if not isinstance(user_action.action_type, SignalType):
@@ -172,15 +165,15 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
         # Call blueprint_step to calculate the next state
         (next_state, batch_type, params) = algo_instance.blueprint_step(response.state, user_action)
         # Send signal
-        resp = await self._signal(signal_request(session_id, next_state.name, signal_obj))
+        resp = await self._signal(signal_request(session, next_state.name, signal_obj))
 
         if self._enable_history:
-            await self._add_history(history_request(session_id, [cid]))
+            await self._add_history(history_request(session, [cid]))
 
         return resp.success
 
-    async def batch(self, session_id: str, batch_size: Optional[int] = None, **kwargs):
-        response = await self._get_session(session_id)
+    async def batch(self, session: SessionObject, batch_size: Optional[int] = None, **kwargs):
+        response = await self._get_session(session)
         vs = self.store[response.vdbid]
 
         self.logger.debug("Session: {} {} {}".format(response.algorithm, response.factory_id, response.custom_id))
@@ -196,11 +189,11 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
 
         history = self._mock_history()
         if self._enable_history:
-            history = await self._get_history(session_id)
+            history = await self._get_history(session)
 
         if batch_type == BatchType.RANDOM:
             query = random_batch_request(algo_instance.batch_size, self._embedding_size, **params.to_dict())
-            await self._update_state(update_state_request(session_id, next_state.name))
+            await self._update_state(update_state_request(session, next_state.name))
             batch_response = await vs.a_multi_search(query)
             ids, batch = algo_instance.random_batch(batch_response, query, **params.to_dict())
 
@@ -217,19 +210,19 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
             if not response.has_embeddings and batch_type == BatchType.PERSONALIZED:
                 self.logger.debug("No embeddings found for personalized batch. Switching to random batch.")
                 query = random_batch_request(algo_instance.batch_size, self._embedding_size, **{"apply_mmr": True})
-                await self._update_state(update_state_request(session_id, next_state.name))
+                await self._update_state(update_state_request(session, next_state.name))
                 batch_response = await vs.a_multi_search(query)
                 ids, batch = algo_instance.random_batch(batch_response, query, **params.to_dict())
 
             else:
-                batch_response_ = await self._biased_batch(biased_batch_request(session_id, response.vdbid, next_state.name,
+                batch_response_ = await self._biased_batch(biased_batch_request(session, response.vdbid, next_state.name,
                                                                          params.to_dict(), **kwargs))
                 query = self.__query_wrapper(response.vdbid, algo_instance.batch_size, batch_response_, history, **params.to_dict())
                 batch = await vs.a_multi_search(query)
                 ids, batch = algo_instance.biased_batch(batch, query, **params.to_dict())
 
         elif batch_type == BatchType.SAMPLED:
-            batch_response_ = await self._sampled_batch(sampled_batch_request(session_id=session_id, vdbid=response.vdbid,
+            batch_response_ = await self._sampled_batch(sampled_batch_request(session=session, vdbid=response.vdbid,
                                                                        state=next_state.name, n_topics=params.n_topics))
             query = self.__query_wrapper(response.vdbid, algo_instance.batch_size, batch_response_, history, **params.to_dict())
             batch = await vs.a_multi_search(query)
@@ -239,7 +232,7 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
             raise ValueError(f"Invalid batch type: {next_state.batch_type}")
 
         if self._enable_history:
-            await self._add_history(history_request(session_id, ids[:algo_instance.batch_size]))
+            await self._add_history(history_request(session, ids[:algo_instance.batch_size]))
 
         return ids, batch
 

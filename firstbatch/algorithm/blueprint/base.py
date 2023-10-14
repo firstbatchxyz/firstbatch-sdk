@@ -96,6 +96,12 @@ class Signal:
 
 
 @dataclass
+class SessionObject(DataClassJsonMixin):
+    id: str
+    is_persistent: bool
+
+
+@dataclass
 class SignalObject:
     action: SignalType
     vector: Vector

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Any
 from firstbatch.client.schema import AddHistoryRequest, CreateSessionRequest, SignalRequest, BiasedBatchRequest, \
     SampledBatchRequest, UpdateStateRequest
+from firstbatch.algorithm.blueprint.base import SessionObject
 
 
 class BaseClient(ABC):
@@ -35,15 +36,15 @@ class BaseClient(ABC):
         ...
 
     @abstractmethod
-    def _get_session(self, id: str) -> Any:
+    def _get_session(self, session: SessionObject) -> Any:
         ...
 
     @abstractmethod
-    def _get_history(self, id: str) -> Any:
+    def _get_history(self, session: SessionObject) -> Any:
         ...
 
     @abstractmethod
-    def _get_user_embeddings(self, id: str) -> Any:
+    def _get_user_embeddings(self, session: SessionObject) -> Any:
         ...
 
     @abstractmethod
@@ -51,7 +52,7 @@ class BaseClient(ABC):
         ...
 
     @abstractmethod
-    def _get_blueprint(self, id: str) -> Any:
+    def _get_blueprint(self, custom_id: str) -> Any:
         ...
 
     @staticmethod

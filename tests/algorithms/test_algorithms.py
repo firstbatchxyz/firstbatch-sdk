@@ -36,10 +36,10 @@ def test_simple(setup):
     while not action_queue.empty():
         a = action_queue.get()
         if a[0] == "batch":
-            ids, batch = personalized.batch(session.data)
+            ids, batch = personalized.batch(session)
         elif a[0] == "signal":
             cid = a[1]
-            personalized.add_signal(session.data, UserAction(Signal.LIKE), ids[cid])
+            personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid])
 
 
 def test_w_bias_vectors(setup):
@@ -61,10 +61,10 @@ def test_w_bias_vectors(setup):
     while not action_queue.empty():
         a = action_queue.get()
         if a[0] == "batch":
-            ids, batch = personalized.batch(session.data, **data)
+            ids, batch = personalized.batch(session, **data)
         elif a[0] == "signal":
             cid = a[1]
-            personalized.add_signal(session.data, UserAction(Signal.LIKE), ids[cid])
+            personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid])
 
 
 def test_factory(setup):
@@ -82,10 +82,10 @@ def test_factory(setup):
     while not action_queue.empty():
         a = action_queue.get()
         if a[0] == "batch":
-            ids, batch = personalized.batch(session.data)
+            ids, batch = personalized.batch(session)
         elif a[0] == "signal":
             cid = a[1]
-            personalized.add_signal(session.data, UserAction(Signal.ADD_TO_CART), ids[cid])
+            personalized.add_signal(session, UserAction(Signal.ADD_TO_CART), ids[cid])
 
 
 def test_custom(setup):
@@ -96,16 +96,16 @@ def test_custom(setup):
         action_queue.put(h)
 
     personalized, vdbid = setup
-    session = personalized.session(algorithm=AlgorithmLabel.CUSTOM, vdbid=vdbid, custom_id="7e0d17f5-da33-4534-b205-8873bc62a485")
+    session = personalized.session(algorithm=AlgorithmLabel.CUSTOM, vdbid=vdbid, custom_id="db5e614e-5f53-4c77-b6bb-fb67c2540dd1")
     ids, batch = [], []
 
     while not action_queue.empty():
         a = action_queue.get()
         if a[0] == "batch":
-            ids, batch = personalized.batch(session.data)
+            ids, batch = personalized.batch(session)
         elif a[0] == "signal":
             cid = a[1]
-            personalized.add_signal(session.data, UserAction(Signal.ADD_TO_CART), ids[cid])
+            personalized.add_signal(session, UserAction(Signal.ADD_TO_CART), ids[cid])
 
 
 

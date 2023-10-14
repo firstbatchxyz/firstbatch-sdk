@@ -7,6 +7,7 @@ from firstbatch.client.schema import (APIResponse, BatchResponse, GetSessionResp
                                       AddHistoryRequest, CreateSessionRequest, SignalRequest, BiasedBatchRequest,
                                       SampledBatchRequest, UpdateStateRequest, FirstBatchAPIError)
 from firstbatch.client.base import BaseClient
+from firstbatch.algorithm.blueprint.base import SessionObject
 
 
 class AsyncFirstBatchClient(BaseClient):
@@ -26,14 +27,18 @@ class AsyncFirstBatchClient(BaseClient):
 
     @staticmethod
     def __error_handling(response: Dict, func_name: str) -> None:
-        if response["code"] != 200:
+        if response["success"] is False:
             raise FirstBatchAPIError(f"FirstBatch API error with code {response['status_code']} "
-                                     f"in {func_name} with reason: {response['content']}")
+                                     f"in {func_name} with reason: {response['message']}")
 
     def __id_wrapper(self, id: Union[str, None]):
         if isinstance(id, str):
             return self.team_id + "-" + id
         return id
+
+    @staticmethod
+    def __session_wrapper(session: SessionObject):
+        return session.id
 
     # For example:
     async def _init_vectordb_scalar(self, key: str, vdbid: str, vecs: List[List[int]], quantiles: List[float]) -> Any:
@@ -56,7 +61,7 @@ class AsyncFirstBatchClient(BaseClient):
 
     async def _add_history(self, req: AddHistoryRequest) -> Any:
         data = {
-            "id": self.__id_wrapper(req.id),
+            "id": self.__session_wrapper(req.session),
             "ids": req.ids
         }
         response = await self._post_request(self.url + "embeddings/update_history", data)
@@ -77,7 +82,7 @@ class AsyncFirstBatchClient(BaseClient):
             raise e
 
     async def _update_state(self, req: UpdateStateRequest) -> APIResponse:
-        data = {"id": self.__id_wrapper(req.id), "state": req.state}
+        data = {"id": self.__session_wrapper(req.session), "state": req.state}
         response = await self._post_request(self.url + "embeddings/update_state", data)
         self.__error_handling(response, "update_state")
         try:
@@ -87,7 +92,7 @@ class AsyncFirstBatchClient(BaseClient):
 
     async def _signal(self, req: SignalRequest) -> APIResponse:
         data = {
-            "id": self.__id_wrapper(req.id),
+            "id": self.__session_wrapper(req.session),
             "vector": req.vector,
             "signal": req.signal,
             "state": req.state
@@ -101,7 +106,7 @@ class AsyncFirstBatchClient(BaseClient):
 
     async def _biased_batch(self, req: BiasedBatchRequest) -> BatchResponse:
         data = {
-            "id": self.__id_wrapper(req.id),
+            "id": self.__session_wrapper(req.session),
             "vdbid": req.vdbid,
             "bias_vectors": req.bias_vectors,
             "bias_weights": req.bias_weights,
@@ -129,7 +134,7 @@ class AsyncFirstBatchClient(BaseClient):
 
     async def _sampled_batch(self, req: SampledBatchRequest) -> BatchResponse:
         data = {
-            "id": self.__id_wrapper(req.id),
+            "id": self.__session_wrapper(req.session),
             "n": req.n,
             "vdbid": req.vdbid,
             "params": req.params,
@@ -154,8 +159,8 @@ class AsyncFirstBatchClient(BaseClient):
         except ValidationError as e:
             raise e
 
-    async def _get_session(self, id: str) -> GetSessionResponse:
-        data = {"id": self.__id_wrapper(id)}
+    async def _get_session(self, session: SessionObject) -> GetSessionResponse:
+        data = {"id": self.__session_wrapper(session)}
         response = await self._post_request(self.url + "embeddings/get_session", data)
         self.__error_handling(response, "get_session")
         try:
@@ -184,8 +189,8 @@ class AsyncFirstBatchClient(BaseClient):
         except ValidationError as e:
             raise e
 
-    async def _get_history(self, id: str) -> GetHistoryResponse:
-        data = {"id": self.__id_wrapper(id)}
+    async def _get_history(self, session: SessionObject) -> GetHistoryResponse:
+        data = {"id": self.__session_wrapper(session)}
         response = await self._post_request(self.url + "embeddings/get_history", data)
         self.__error_handling(response, "get_history")
         try:
@@ -202,9 +207,9 @@ class AsyncFirstBatchClient(BaseClient):
         except ValidationError as e:
             raise e
 
-    async def _get_user_embeddings(self, id: str, last_n: Optional[int] = None) -> BatchResponse:
+    async def _get_user_embeddings(self, session: SessionObject, last_n: Optional[int] = None) -> BatchResponse:
 
-        data = {"id": self.__id_wrapper(id), "last_n": 50}
+        data = {"id": self.__session_wrapper(session), "last_n": 50}
         if last_n is None:
             data["last_n"] = last_n
 
@@ -236,8 +241,8 @@ class AsyncFirstBatchClient(BaseClient):
         except ValidationError as e:
             raise e
 
-    async def _get_blueprint(self, id: str) -> Any:
-        data = {"id": self.__id_wrapper(id)}
+    async def _get_blueprint(self, custom_id: str) -> Any:
+        data = {"id": custom_id}
         response = await self._post_request(self.url + "embeddings/get_blueprint", data)
         self.__error_handling(response, "get_blueprint")
         try:

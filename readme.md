@@ -1,13 +1,32 @@
 # FirstBatch SDK
 
+The FirstBatch SDK provides an interface for integrating vector databases and powering personalized AI experiences in your application.
+
+## Key Features
+
+- Seamlessly manage user sessions with persistent IDs or temporary sessions
+- Send signal actions like likes, clicks, etc. to update user embeddings in real-time
+- Fetch personalized batches of data tailored to each user's embeddings  
+- Support for multiple vector database integrations: Pinecone, Weaviate, etc.
+- Built-in algorithms for common personalization use cases
+- Easy configuration with Python classes and environment variables
+
 ## Getting Started
 
-1. **Installation (Not available yet)**
-    ```bash
-    pip install firstbatch
-    ```
+### Prerequisites
 
-2. **Initialize VectorDB of your choice**
+- Python 3.9+
+- API keys for FirstBatch and your chosen vector database
+
+### Installation
+
+```
+pip install firstbatch
+```
+
+## Basic Usage
+
+1. **Initialize VectorDB of your choice**
     ```python
    api_key = os.environ["PINECONE_API_KEY"]
    env = os.environ["PINECONE_ENV"]
@@ -16,22 +35,21 @@
    index = pinecone.Index("your_index_name")
     ```
 
-## Personalization
+### Personalization
 
-1. **Create a session with an Algorithm suiting your needs**
+2. **Create a session with an Algorithm suiting your needs**
     ```python 
    session = personalized.session(algorithm=AlgorithmLabel.AI_AGENTS, vdbid="my_pinecone_db")
     ```
 
-2. **Make recommendations**
+3. **Make recommendations**
     ```python
-   session_id = session.data
-   ids, batch = personalized.batch(session_id)
+   ids, batch = personalized.batch(session)
     ```
-3. **Let users add signals to shape their embeddings**
+4. **Let users add signals to shape their embeddings**
    ```python
    user_pick = 0  # User liked the first content from the previous batch.
-   personalized.add_signal(session_id, UserAction(Signal.LIKE), ids[user_pick])
+   personalized.add_signal(session, UserAction(Signal.LIKE), ids[user_pick])
    ```
 
 ## Support

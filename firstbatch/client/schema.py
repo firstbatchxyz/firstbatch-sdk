@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Union, Any
 from firstbatch.algorithm.registry import AlgorithmLabel
+from firstbatch.algorithm.blueprint.base import SessionObject
 from dataclasses_json import DataClassJsonMixin
 from dataclasses import dataclass
 
@@ -18,12 +19,12 @@ class InitRequest:
     vdbid: str
     vecs: List[List[int]]
     quantiles: List[float]
-    key: str  # If "id" is always the key, you can initialize it here.
+    key: str
 
 
 @dataclass
 class AddHistoryRequest:
-    id: str
+    session: SessionObject
     ids: List[str]
 
 
@@ -39,13 +40,13 @@ class CreateSessionRequest:
 
 @dataclass
 class UpdateStateRequest:
-    id: str
+    session: SessionObject
     state: str
 
 
 @dataclass
 class SignalRequest:
-    id: str
+    session: SessionObject
     vector: List[float]
     signal: float
     state: str
@@ -53,7 +54,7 @@ class SignalRequest:
 
 @dataclass
 class BiasedBatchRequest:
-    id: str
+    session: SessionObject
     vdbid: str
     state: str
     bias_vectors: Optional[List[List[float]]] = None
@@ -63,7 +64,7 @@ class BiasedBatchRequest:
 
 @dataclass
 class SampledBatchRequest:
-    id: str
+    session: SessionObject
     n: int
     vdbid: str
     state: str
@@ -74,7 +75,7 @@ class APIResponse(BaseModel):
     success: bool
     code: int
     data: Optional[Union[str, Dict[str, Union[str, int, List[str] ,List[float], List[List[float]]]]]]
-    message: Optional[str] = None  # Assuming the API might return error messages or other messages
+    message: Optional[str] = None
 
 
 class GetHistoryResponse(BaseModel):
