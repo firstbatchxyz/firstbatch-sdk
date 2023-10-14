@@ -28,8 +28,8 @@ async def test_async_simple(setup):
         action_queue.put(h)
 
     personalized, index = setup
-    await personalized.add_vdb("db_deneme5", Pinecone(index))
-    session = await personalized.session(algorithm=AlgorithmLabel.SIMPLE, vdbid="db_deneme5")
+    await personalized.add_vdb("my_db", Pinecone(index))
+    session = await personalized.session(algorithm=AlgorithmLabel.SIMPLE, vdbid="my_db")
     ids, batch = [], []
 
     while not action_queue.empty():
