@@ -9,15 +9,18 @@ import os
 def setup():
     api_key = os.environ["PINECONE_API_KEY"]
     env = os.environ["PINECONE_ENV"]
-    index_name = "rss"
+    vdb_name = os.environ["VDB_NAME"]
+    index_name = os.environ["INDEX_NAME"]
+    embedding_size = int(os.environ["EMBEDDING_SIZE"])
+
     pinecone.init(api_key=api_key, environment=env)
     pinecone.describe_index(index_name)
     index = pinecone.Index(index_name)
 
-    config = Config(embedding_size=1536, batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
+    config = Config(embedding_size=embedding_size, batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
                  enable_history=True, verbose=True)
     personalized = AsyncFirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], config=config)
-    return personalized, index
+    return personalized, index, vdb_name
 
 
 @pytest.mark.asyncio
@@ -27,9 +30,9 @@ async def test_async_simple(setup):
     for h in actions:
         action_queue.put(h)
 
-    personalized, index = setup
-    await personalized.add_vdb("my_db", Pinecone(index))
-    session = await personalized.session(algorithm=AlgorithmLabel.SIMPLE, vdbid="my_db")
+    personalized, index, vdb = setup
+    await personalized.add_vdb(vdb, Pinecone(index))
+    session = await personalized.session(algorithm=AlgorithmLabel.SIMPLE, vdbid=vdb)
     ids, batch = [], []
 
     while not action_queue.empty():

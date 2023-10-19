@@ -14,6 +14,7 @@ class FirstBatchClient(BaseClient):
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.url: str = ""
+        self.region: str = ""
         self.team_id: str = ""
         self.headers = {
             "x-api-key": self.api_key,
@@ -45,6 +46,7 @@ class FirstBatchClient(BaseClient):
             "key": hash_value,
             "vdbid": vdbid,
             "mode": "scalar",
+            "region": self.region,
             "quantized_vecs": vecs,
             "quantiles": quantiles
         }
@@ -265,6 +267,7 @@ class FirstBatchClient(BaseClient):
         region = data["region"]
         try:
             self.url = regions[region]
+            self.region = region
         except ValueError:
             raise ValueError("There is no such region {}".format(region))
 

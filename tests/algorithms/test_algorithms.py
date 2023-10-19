@@ -10,17 +10,20 @@ import os
 def setup():
     api_key = os.environ["PINECONE_API_KEY"]
     env = os.environ["PINECONE_ENV"]
-    index_name = "rss"
+    vdb_name = os.environ["VDB_NAME"]
+    index_name = os.environ["INDEX_NAME"]
+    embedding_size = int(os.environ["EMBEDDING_SIZE"])
+
     pinecone.init(api_key=api_key, environment=env)
     pinecone.describe_index(index_name)
     index = pinecone.Index(index_name)
 
-    cfg = Config(embedding_size=1536, batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
+    cfg = Config(embedding_size=embedding_size, batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
                  enable_history=True, verbose=True)
     personalized = FirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], config=cfg)
-    personalized.add_vdb("my_db", Pinecone(index))
+    personalized.add_vdb(vdb_name, Pinecone(index))
 
-    return personalized, "my_db"
+    return personalized, vdb_name
 
 
 def test_simple(setup):
@@ -96,7 +99,7 @@ def test_custom(setup):
         action_queue.put(h)
 
     personalized, vdbid = setup
-    session = personalized.session(algorithm=AlgorithmLabel.CUSTOM, vdbid=vdbid, custom_id="db5e614e-5f53-4c77-b6bb-fb67c2540dd1")
+    session = personalized.session(algorithm=AlgorithmLabel.CUSTOM, vdbid=vdbid, custom_id="f23a2cfe-5a38-4671-927d-0897c01a2d25")
     ids, batch = [], []
 
     while not action_queue.empty():
