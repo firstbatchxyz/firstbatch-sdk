@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "firstbatch"
-version = "0.1.4"
+version = "0.1.5"
 description = "FirstBatch SDK for integrating user embeddings to your project. Add real-time personalization to your AI application without user data."
 authors = ["andthattoo <omer@firstbatch.xyz>"]
 license = "MIT"
