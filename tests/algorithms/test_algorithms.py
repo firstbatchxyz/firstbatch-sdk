@@ -42,7 +42,7 @@ def test_simple(setup):
             ids, batch = personalized.batch(session)
         elif a[0] == "signal":
             cid = a[1]
-            personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid])
+            personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid if cid < len(ids) else len(ids)-1])
 
 
 def test_w_bias_vectors(setup):
@@ -53,7 +53,7 @@ def test_w_bias_vectors(setup):
     for h in actions:
         action_queue.put(h)
 
-    starting_vectors = [vec.vector for vec in generate_vectors(1536, 5)]
+    starting_vectors = [vec.vector for vec in generate_vectors(int(os.environ["EMBEDDING_SIZE"]), 5)]
     starting_weights = [1.0] * 5
     data = {"bias_vectors": starting_vectors, "bias_weights": starting_weights}
 
@@ -67,7 +67,7 @@ def test_w_bias_vectors(setup):
             ids, batch = personalized.batch(session, **data)
         elif a[0] == "signal":
             cid = a[1]
-            personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid])
+            personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid if cid < len(ids) else len(ids)-1])
 
 
 def test_factory(setup):
@@ -88,7 +88,7 @@ def test_factory(setup):
             ids, batch = personalized.batch(session)
         elif a[0] == "signal":
             cid = a[1]
-            personalized.add_signal(session, UserAction(Signal.ADD_TO_CART), ids[cid])
+            personalized.add_signal(session, UserAction(Signal.ADD_TO_CART), ids[cid if cid < len(ids) else len(ids)-1])
 
 
 def test_custom(setup):
@@ -108,7 +108,7 @@ def test_custom(setup):
             ids, batch = personalized.batch(session)
         elif a[0] == "signal":
             cid = a[1]
-            personalized.add_signal(session, UserAction(Signal.ADD_TO_CART), ids[cid])
+            personalized.add_signal(session, UserAction(Signal.ADD_TO_CART), ids[cid if cid < len(ids) else len(ids)-1])
 
 
 

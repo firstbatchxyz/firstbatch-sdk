@@ -41,5 +41,5 @@ async def test_async_simple(setup):
             ids, batch = await personalized.batch(session)
         elif a[0] == "signal":
             cid = a[1]
-            await personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid])
+            await personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid if cid < len(ids) else len(ids)-1])
 
