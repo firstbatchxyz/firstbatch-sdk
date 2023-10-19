@@ -36,17 +36,20 @@ class BaseAlgorithm(ABC):
         # We can't use apply threshold with random batches
         if "apply_threshold" in kwargs:
             del kwargs["apply_threshold"]
+        if "apply_mmr" in kwargs:
+            del kwargs["apply_mmr"]
+        kwargs["shuffle"] = True
         ids, metadata = self._apply_params(batch, query, **kwargs)
         return ids[:batch.batch_size], metadata[:batch.batch_size]
 
     def biased_batch(self, batch: BatchQueryResult, query: BatchQuery, **kwargs) \
             -> Any:
-        if "apply_mmr" in kwargs:
-            del kwargs["apply_mmr"]
+        kwargs["shuffle"] = True
         ids, metadata = self._apply_params(batch, query, **kwargs)
         return ids[:batch.batch_size], metadata[:batch.batch_size]
 
     def sampled_batch(self, batch: BatchQueryResult, query: BatchQuery, **kwargs: Any) -> Any:
+        kwargs["shuffle"] = True
         ids, metadata = self._apply_params(batch, query, **kwargs)
         return ids[:batch.batch_size], metadata[:batch.batch_size]
 

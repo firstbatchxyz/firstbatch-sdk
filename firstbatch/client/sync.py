@@ -210,7 +210,7 @@ class FirstBatchClient(BaseClient):
     def _get_user_embeddings(self, session: SessionObject, last_n: Optional[int] = None) -> BatchResponse:
 
         data = {"id": self.__session_wrapper(session), "last_n": 50}
-        if last_n is None:
+        if last_n is not None:
             data["last_n"] = last_n
 
         response = requests.post(self.url + "embeddings/get_embeddings", headers=self.headers, json=data)
