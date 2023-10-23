@@ -54,7 +54,7 @@ pip install firstbatch
 
 ## Support
 
-For any issues or queries contact `support@firstbatch.com`.
+For any issues or queries contact `support@firstbatch.xyz`.
 
   
 ## Resources
