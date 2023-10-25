@@ -54,7 +54,7 @@ class AsyncFirstBatchClient(BaseClient):
             "quantized_vecs": vecs,
             "quantiles": quantiles
         }
-        response = await self._post_request(self.url + "embeddings/init_vectordb", data)
+        response = await self._post_request(self.url + "embeddings/init_vdb", data)
         self.__error_handling(response, "init_vectordb_scalar")
         try:
             return APIResponse(**response)

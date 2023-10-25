@@ -117,7 +117,7 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
             self.store[vdbid] = vs
 
     async def user_embeddings(self, session: SessionObject):
-        return self._get_user_embeddings(session)
+        return await self._get_user_embeddings(session)
 
     async def session(self, algorithm: AlgorithmLabel, vdbid: str, session_id: Optional[str] = None,
                 custom_id: Optional[str] = None):
