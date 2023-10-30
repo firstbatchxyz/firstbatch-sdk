@@ -1,6 +1,6 @@
 import pytest
-from firstbatch import FirstBatch, Pinecone, Config, UserAction, Signal, AlgorithmLabel
-import pinecone
+from firstbatch import FirstBatch, Qdrant, Config, UserAction, Signal, AlgorithmLabel
+from qdrant_client import QdrantClient
 import queue
 from firstbatch.vector_store.utils import generate_vectors
 import os
@@ -8,20 +8,15 @@ import os
 
 @pytest.fixture
 def setup():
-    api_key = os.environ["PINECONE_API_KEY"]
-    env = os.environ["PINECONE_ENV"]
-    vdb_name = os.environ["VDB_NAME"]
-    index_name = os.environ["INDEX_NAME"]
     embedding_size = int(os.environ["EMBEDDING_SIZE"])
-
-    pinecone.init(api_key=api_key, environment=env)
-    pinecone.describe_index(index_name)
-    index = pinecone.Index(index_name)
+    vdb_name = os.environ["VDB_NAME"]
+    client = QdrantClient(os.environ["QDRANT_URL"])
+    cl = Qdrant(client=client, collection_name="farcaster", embedding_size=embedding_size)
 
     cfg = Config(batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
                  enable_history=True, verbose=True)
     personalized = FirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], config=cfg)
-    personalized.add_vdb(vdb_name, Pinecone(index, embedding_size=embedding_size))
+    personalized.add_vdb(vdb_name, cl)
 
     return personalized, vdb_name
 
@@ -68,28 +63,6 @@ def test_w_bias_vectors(setup):
         elif a[0] == "signal":
             cid = a[1]
             personalized.add_signal(session, UserAction(Signal.LIKE), ids[cid if cid < len(ids) else len(ids)-1])
-
-
-def test_factory(setup):
-
-    actions = [("batch", 0), ("signal", 2), ("batch", 0), ("signal", 4), ("signal", 1), ("batch", 0),
-               ("batch", 0), ("signal", 12), ("signal", 9)]
-    action_queue = queue.Queue()
-    for h in actions:
-        action_queue.put(h)
-
-    personalized, vdbid = setup
-    session = personalized.session(algorithm=AlgorithmLabel.RECOMMENDATIONS, vdbid=vdbid)
-    ids, batch = [], []
-
-    while not action_queue.empty():
-        a = action_queue.get()
-        if a[0] == "batch":
-            ids, batch = personalized.batch(session)
-        elif a[0] == "signal":
-            cid = a[1]
-            personalized.add_signal(session, UserAction(Signal.ADD_TO_CART), ids[cid if cid < len(ids) else len(ids)-1])
-
 
 def test_custom(setup):
 

@@ -26,7 +26,8 @@ class Chroma(VectorStore):
         persist_directory: Optional[str] = None,
         client_settings: Optional[chromadb.config.Settings] = None,
         client: Optional[Any] = None,
-        distance_metric: Optional[DistanceMetric] = None
+        distance_metric: Optional[DistanceMetric] = None,
+        embedding_size: Optional[int] = None
     ) -> None:
         try:
             import chromadb
@@ -45,7 +46,7 @@ class Chroma(VectorStore):
             raise ValueError("client should be an instance of chromadb.Client, got {type(client)}")
 
         self._collection: chromadb.Collection = self._client.get_collection(collection_name)
-        self._embedding_size = DEFAULT_EMBEDDING_SIZE
+        self._embedding_size = DEFAULT_EMBEDDING_SIZE if embedding_size is None else embedding_size
         self._distance_metric: DistanceMetric = DistanceMetric.COSINE_SIM if distance_metric is None else distance_metric
         logger.debug("Chrome vector store initialized with collection: {}".format(collection_name))
 
@@ -64,6 +65,10 @@ class Chroma(VectorStore):
     @embedding_size.setter
     def embedding_size(self, value):
         self._embedding_size = value
+
+    @property
+    def history_field(self):
+        return "id"
 
     def train_quantizer(self, vectors: List[Vector]):
         if isinstance(self._quantizer, BaseLossy):
@@ -172,7 +177,7 @@ class Chroma(VectorStore):
                                metadata=QueryMetadata(id=idx, data=result["metadatas"][i])) for i, idx in enumerate(result["ids"])] # type: ignore
         return BatchFetchResult(batch_size=batch_query.batch_size, results=fetches)
 
-    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None, id_field: str = "id") -> MetadataFilter:
+    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None) -> MetadataFilter:
 
         """
         if prev_filter is not None:

@@ -22,7 +22,9 @@ class TypeSense(VectorStore):
     def __init__(self,
                  client: "Client",
                  collection_name: str = DEFAULT_COLLECTION,
-                 distance_metric: Optional[DistanceMetric] = None
+                 distance_metric: Optional[DistanceMetric] = None,
+                 history_field: Optional[str] = None,
+                 embedding_size: Optional[int] = None
                  ) -> None:
         """Initialize params."""
         import_err_msg = (
@@ -43,7 +45,8 @@ class TypeSense(VectorStore):
         self._collection_name = collection_name
         self._collection = self._client.collections[self._collection_name]
         self._metadata_key = "metadata"
-        self._embedding_size = DEFAULT_EMBEDDING_SIZE
+        self._embedding_size = DEFAULT_EMBEDDING_SIZE if embedding_size is None else embedding_size
+        self._history_field = "_id" if history_field is None else history_field
         self._distance_metric = DistanceMetric.COSINE_SIM if distance_metric is None else distance_metric
         logger.debug("TypeSense initialized with collection: {}".format(collection_name))
 
@@ -62,6 +65,10 @@ class TypeSense(VectorStore):
     @embedding_size.setter
     def embedding_size(self, value):
         self._embedding_size = value
+
+    @property
+    def history_field(self):
+        return self._history_field
 
     def train_quantizer(self, vectors: List[Vector]):
         if isinstance(self._quantizer, BaseLossy):
@@ -153,13 +160,13 @@ class TypeSense(VectorStore):
 
         return asyncio.run(_async_multi_fetch())
 
-    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None, id_field: str = "_id") -> MetadataFilter:
+    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None) -> MetadataFilter:
 
-        if id_field == "id":
+        if self._history_field == "id":
             logger.debug("TypeSense doesn't allow filtering on id field. Try duplicating id in another field like _id.")
             raise ValueError("ID field error")
 
-        filter_ = "{}:!=".format(id_field) + "[" + ",".join(ids) + "]"
+        filter_ = "{}:!=".format(self._history_field) + "[" + ",".join(ids) + "]"
         if prev_filter is not None and isinstance(prev_filter, str):
             filter_ += " && " + prev_filter
         return MetadataFilter(name="History", filter=filter_)

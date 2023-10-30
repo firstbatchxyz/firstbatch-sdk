@@ -17,10 +17,10 @@ def setup():
     pinecone.describe_index(index_name)
     index = pinecone.Index(index_name)
 
-    config = Config(embedding_size=embedding_size, batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
+    config = Config(batch_size=20, quantizer_train_size=100, quantizer_type="scalar",
                  enable_history=True, verbose=True)
     personalized = AsyncFirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], config=config)
-    return personalized, index, vdb_name
+    return personalized, index, vdb_name, embedding_size
 
 
 @pytest.mark.asyncio
@@ -30,8 +30,8 @@ async def test_async_simple(setup):
     for h in actions:
         action_queue.put(h)
 
-    personalized, index, vdb = setup
-    await personalized.add_vdb(vdb, Pinecone(index))
+    personalized, index, vdb, esize = setup
+    await personalized.add_vdb(vdb, Pinecone(index, embedding_size=esize))
     session = await personalized.session(algorithm=AlgorithmLabel.SIMPLE, vdbid=vdb)
     ids, batch = [], []
 

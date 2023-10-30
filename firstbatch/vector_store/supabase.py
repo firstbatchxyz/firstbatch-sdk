@@ -8,7 +8,7 @@ from firstbatch.vector_store.base import VectorStore
 from firstbatch.vector_store.schema import FetchQuery, Query, BatchQuery, BatchQueryResult,\
     QueryResult, QueryMetadata, BatchFetchQuery, BatchFetchResult, FetchResult, Vector, DistanceMetric
 from firstbatch.lossy.base import BaseLossy, CompressedVector
-from firstbatch.constants import DEFAULT_COLLECTION, DEFAULT_EMBEDDING_SIZE
+from firstbatch.constants import DEFAULT_COLLECTION, DEFAULT_EMBEDDING_SIZE, DEFAULT_HISTORY_FIELD
 
 if TYPE_CHECKING:
     from vecs import Client
@@ -23,7 +23,9 @@ class Supabase(VectorStore):
         client: Client,
         collection_name: Optional[str] = None,
         query_name: Optional[str] = None,
-        distance_metric: Optional[DistanceMetric] = None
+        distance_metric: Optional[DistanceMetric] = None,
+        history_field: Optional[str] = None,
+        embedding_size: Optional[int] = None
     ) -> None:
         try:
             import vecs # noqa: F401
@@ -36,8 +38,9 @@ class Supabase(VectorStore):
         self._client = client
         self.collection_name = collection_name or DEFAULT_COLLECTION
         self.query_name = query_name or "match_documents"
-        self._collection = client.get_or_create_collection(name=self.collection_name)
-        self._embedding_size = DEFAULT_EMBEDDING_SIZE
+        self._embedding_size = DEFAULT_EMBEDDING_SIZE if embedding_size is None else embedding_size
+        self._collection = client.get_or_create_collection(name=self.collection_name, dimension=self._embedding_size)
+        self._history_field = DEFAULT_HISTORY_FIELD if history_field is None else history_field
         self._distance_metric = DistanceMetric.COSINE_SIM if distance_metric is None else distance_metric
         logger.debug("Supabase/PGVector initialized with collection: {}".format(collection_name))
 
@@ -56,6 +59,10 @@ class Supabase(VectorStore):
     @embedding_size.setter
     def embedding_size(self, value):
         self._embedding_size = value
+
+    @property
+    def history_field(self):
+        return self._history_field
 
     def train_quantizer(self, vectors: List[Vector]):
         if isinstance(self._quantizer, BaseLossy):
@@ -149,13 +156,13 @@ class Supabase(VectorStore):
                                metadata=QueryMetadata(id=idx[0], data=idx[2])) for i, idx in enumerate(result)]
         return BatchFetchResult(batch_size=batch_query.batch_size, results=fetches)
 
-    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None, id_field: str = "id") -> MetadataFilter:
+    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None) -> MetadataFilter:
 
         if prev_filter is not None and not isinstance(prev_filter, str):
             if "$and" not in prev_filter:
                 prev_filter["$and"] = []
             for id in ids:
-                prev_filter["$and"].append({id_field: {"$ne": id}})
+                prev_filter["$and"].append({self._history_field: {"$ne": id}})
 
             return MetadataFilter(name="", filter=prev_filter)
         else:
@@ -164,7 +171,7 @@ class Supabase(VectorStore):
                 ]
             }
             for id in ids:
-                filter_["$and"].append({id_field: {"$ne": id}})
+                filter_["$and"].append({self._history_field: {"$ne": id}})
 
             return MetadataFilter(name="History", filter=filter_)
 

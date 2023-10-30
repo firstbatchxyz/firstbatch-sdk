@@ -32,7 +32,6 @@ from firstbatch.utils import Config
 from firstbatch.constants import (
     DEFAULT_VERBOSE,
     DEFAULT_HISTORY,
-    DEFAULT_EMBEDDING_SIZE,
     DEFAULT_BATCH_SIZE,
     DEFAULT_QUANTIZER_TRAIN_SIZE,
     DEFAULT_QUANTIZER_TYPE,
@@ -55,14 +54,13 @@ class FirstBatch(FirstBatchClient):
         """
         super().__init__(api_key)
         self.store: defaultdict[str, VectorStore] = defaultdict(VectorStore)
-        self._embedding_size = DEFAULT_EMBEDDING_SIZE
         self._batch_size = DEFAULT_BATCH_SIZE
         self._quantizer_train_size = DEFAULT_QUANTIZER_TRAIN_SIZE
         self._quantizer_type = DEFAULT_QUANTIZER_TYPE
         self._enable_history = DEFAULT_HISTORY
         self._verbose = DEFAULT_VERBOSE
         self.logger = setup_logger()
-        self.logger.setLevel(logging.ERROR)
+        self.logger.setLevel(logging.WARN)
         self._set_info()
 
         if config.verbose is not None:
@@ -71,30 +69,26 @@ class FirstBatch(FirstBatchClient):
                 self.logger.setLevel(logging.DEBUG)
             else:
                 self.logger.setLevel(logging.WARN)
-        if config.embedding_size is not None:
-            self._embedding_size = config.embedding_size
         if config.batch_size is not None:
             self._batch_size = config.batch_size
         if config.quantizer_train_size is not None:
             self._quantizer_train_size = config.quantizer_train_size
         if config.quantizer_type is not None:
-            self.logger.debug("Product type quantizer is not supported yet.")
+            self.logger.info("Product type quantizer is not supported yet.")
             # self._quantizer_type = kwargs["quantizer_type"]
             self._quantizer_type = "scalar"
         if config.enable_history is not None:
             self._enable_history = config.enable_history
 
-        self.logger.debug("Set mode to verbose")
-        self.logger.debug("Using: {}".format(self.url))
+        self.logger.info("Set mode to verbose")
+        self.logger.info("Using: {}".format(self.url))
 
-    def add_vdb(self, vdbid: str, vs: VectorStore, embedding_size: Optional[int] = None):
+    def add_vdb(self, vdbid: str, vs: VectorStore):
 
         exists = self._vdb_exists(vdbid)
-        embedding_size_ = self._embedding_size if embedding_size is None else embedding_size
-        vs.embedding_size = embedding_size_
 
         if not exists:
-            self.logger.debug("VectorDB with id {} not found. Sketching new VectorDB".format(vdbid))
+            self.logger.info("VectorDB with id {} not found. Sketching new VectorDB".format(vdbid))
             if self._quantizer_type == "scalar":
                 vs.quantizer = ScalarQuantizer(256)
                 ts = min(int(self._quantizer_train_size/DEFAULT_TOPK_QUANT), 500)
@@ -168,13 +162,13 @@ class FirstBatch(FirstBatchClient):
 
         if resp.success:
             if self._enable_history:
-                self._add_history(history_request(session, [cid]))
+                self._add_history(history_request(session, [result.metadata.data[vs.history_field]]))
 
     def batch(self, session: SessionObject, batch_size: Optional[int] = None, **kwargs):
         response = self._get_session(session)
         vs = self.store[response.vdbid]
 
-        self.logger.debug("Session: {} {} {}".format(response.algorithm, response.factory_id, response.custom_id))
+        self.logger.info("Session: {} {} {}".format(response.algorithm, response.factory_id, response.state))
         if batch_size is None:
             batch_size = self._batch_size
 
@@ -183,21 +177,21 @@ class FirstBatch(FirstBatchClient):
 
         (next_state, batch_type, params) = algo_instance.blueprint_step(response.state, user_action)
 
-        self.logger.debug("{} {}".format(batch_type,params.to_dict()))
+        self.logger.info("{} {}".format(batch_type, params.to_dict()))
 
         history = self._mock_history()
         if self._enable_history:
             history = self._get_history(session)
 
         if batch_type == BatchType.RANDOM:
-            query = random_batch_request(algo_instance.batch_size, self._embedding_size, **params.to_dict())
+            query = random_batch_request(algo_instance.batch_size, vs.embedding_size, **params.to_dict())
             self._update_state(update_state_request(session, next_state.name))
             batch_response = vs.multi_search(query)
             ids, batch = algo_instance.random_batch(batch_response, query, **params.to_dict())
 
         elif batch_type == BatchType.PERSONALIZED or batch_type == BatchType.BIASED:
             if batch_type == BatchType.BIASED and not ("bias_vectors" in kwargs and "bias_weights" in kwargs):
-                self.logger.debug("Bias vectors and weights must be provided for biased batch.")
+                self.logger.info("Bias vectors and weights must be provided for biased batch.")
                 raise ValueError("no bias vectors provided")
 
             if batch_type == BatchType.PERSONALIZED and ("bias_vectors" in kwargs and "bias_weights" in kwargs):
@@ -205,9 +199,9 @@ class FirstBatch(FirstBatchClient):
                 del kwargs["bias_weights"]
 
             if not response.has_embeddings and batch_type == BatchType.PERSONALIZED:
-                self.logger.debug("No embeddings found for personalized batch. Switching to random batch.")
+                self.logger.info("No embeddings found for personalized batch. Switching to random batch.")
 
-                query = random_batch_request(algo_instance.batch_size, self._embedding_size, **{"apply_mmr": True})
+                query = random_batch_request(algo_instance.batch_size, vs.embedding_size, **{"apply_mmr": True})
                 self._update_state(update_state_request(session, next_state.name))
                 batch_response = vs.multi_search(query)
                 ids, batch = algo_instance.random_batch(batch_response, query, **params.to_dict())
@@ -229,7 +223,8 @@ class FirstBatch(FirstBatchClient):
             raise ValueError(f"Invalid batch type: {next_state.batch_type}")
 
         if self._enable_history:
-            self._add_history(history_request(session, ids[:algo_instance.batch_size]))
+            content = [b.data[vs.history_field] for b in batch[:algo_instance.batch_size]]
+            self._add_history(history_request(session, content))
 
         return ids, batch
 
@@ -253,11 +248,11 @@ class FirstBatch(FirstBatchClient):
 
         if self._enable_history:
             if history is None:
-                self.logger.debug("History is None, No filter will be applied.")
+                self.logger.info("History is None, No filter will be applied.")
                 history = GetHistoryResponse(ids=[])
 
             if "filter" in kwargs:
-                m_filter = self.store[vdbid].history_filter(history.ids, kwargs["filter"], id_field="_id")
+                m_filter = self.store[vdbid].history_filter(history.ids, kwargs["filter"])
             else:
                 m_filter = self.store[vdbid].history_filter(history.ids)
 

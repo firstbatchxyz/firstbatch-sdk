@@ -9,7 +9,7 @@ from firstbatch.vector_store.schema import FetchQuery, Query, BatchQuery, BatchQ
     QueryResult, SearchType, QueryMetadata, BatchFetchQuery, Vector, FetchResult, BatchFetchResult, MetadataFilter, \
     DistanceMetric
 from firstbatch.lossy.base import BaseLossy, CompressedVector
-from firstbatch.constants import DEFAULT_EMBEDDING_SIZE, DEFAULT_COLLECTION
+from firstbatch.constants import DEFAULT_EMBEDDING_SIZE, DEFAULT_COLLECTION, DEFAULT_HISTORY_FIELD
 
 
 logger = logging.getLogger("FirstBatchLogger")
@@ -23,7 +23,9 @@ class Weaviate(VectorStore):
             client: Any,
             index_name: Optional[str] = None,
             output_fields: Optional[List[str]] = None,
-            distance_metric: Optional[DistanceMetric] = None
+            distance_metric: Optional[DistanceMetric] = None,
+            history_field: Optional[str] = None,
+            embedding_size: Optional[int] = None
     ):
         """Initialize with Weaviate client."""
 
@@ -43,7 +45,8 @@ class Weaviate(VectorStore):
         self._client = client
         self._index_name = DEFAULT_COLLECTION if index_name is None else index_name
         self._output_fields = output_fields
-        self._embedding_size = DEFAULT_EMBEDDING_SIZE
+        self._embedding_size = DEFAULT_EMBEDDING_SIZE if embedding_size is None else embedding_size
+        self._history_field = DEFAULT_HISTORY_FIELD if history_field is None else history_field
         self._distance_metric = DistanceMetric.COSINE_SIM if distance_metric is None else distance_metric
         logger.debug("Weaviate initialized with index: {}".format(index_name))
 
@@ -62,6 +65,10 @@ class Weaviate(VectorStore):
     @embedding_size.setter
     def embedding_size(self, value):
         self._embedding_size = value
+
+    @property
+    def history_field(self):
+        return self._history_field
 
     def train_quantizer(self, vectors: List[Vector]):
         if isinstance(self._quantizer, BaseLossy):
@@ -170,7 +177,7 @@ class Weaviate(VectorStore):
 
         return asyncio.run(_async_multi_fetch())
 
-    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None, id_field: str = "id") -> MetadataFilter:
+    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None) -> MetadataFilter:
 
         filter: Dict[str, Any]
 
@@ -187,7 +194,7 @@ class Weaviate(VectorStore):
 
         for id in ids:
             f = {
-                "path": [id_field],
+                "path": [self._history_field],
                 "operator": "NotEqual",
                 "valueText": id
             }

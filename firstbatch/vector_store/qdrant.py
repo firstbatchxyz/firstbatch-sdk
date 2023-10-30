@@ -6,47 +6,48 @@ import asyncio
 import logging
 from firstbatch.vector_store.base import VectorStore
 from firstbatch.vector_store.schema import FetchQuery, Query, BatchQuery, BatchQueryResult, \
-    QueryResult, SearchType, QueryMetadata, BatchFetchQuery, BatchFetchResult, FetchResult, Vector, MetadataFilter, \
+    QueryResult, QueryMetadata, BatchFetchQuery, BatchFetchResult, FetchResult, Vector, MetadataFilter, \
     DistanceMetric
 from firstbatch.lossy.base import BaseLossy, CompressedVector
-from firstbatch.constants import DEFAULT_EMBEDDING_SIZE, DEFAULT_HISTORY_FIELD
+from firstbatch.constants import DEFAULT_EMBEDDING_SIZE, DEFAULT_COLLECTION, DEFAULT_HISTORY_FIELD
 
 if TYPE_CHECKING:
-    from pinecone import Index
+    from qdrant_client import QdrantClient
+    from qdrant_client.http.models import FieldCondition, MatchExcept, Filter
 
 logger = logging.getLogger("FirstBatchLogger")
 
 
-class Pinecone(VectorStore):
-    """`Pinecone` vector store."""
+class Qdrant(VectorStore):
+    """`Qdrant` vector store."""
 
     def __init__(
             self,
-            index: Index,
-            namespace: Optional[str] = None,
+            client: QdrantClient,
+            collection_name: Optional[str] = None,
             distance_metric: Optional[DistanceMetric] = None,
             history_field: Optional[str] = None,
             embedding_size: Optional[int] = None
     ):
-        """Initialize with Pinecone client."""
+        """Initialize with Qdrant client."""
         try:
-            import pinecone
+            from qdrant_client import QdrantClient
         except ImportError:
             raise ImportError(
-                "Could not import pinecone python package. "
-                "Please install it with `pip install pinecone-client`."
+                "Could not import qdrant_client python package. "
+                "Please install it with `pip install qdrant-client`."
             )
-        if not isinstance(index, pinecone.Index):
+        if not isinstance(client, QdrantClient):
             raise ValueError(
-                f"client should be an instance of pinecone.index.Index, "
-                f"got {type(index)}"
+                f"client should be an instance of QdrantClient, "
+                f"got {type(client)}"
             )
-        self._index = index
-        self._namespace = namespace
+        self._client = client
+        self._collection_name = collection_name if collection_name is not None else DEFAULT_COLLECTION
         self._embedding_size = DEFAULT_EMBEDDING_SIZE if embedding_size is None else embedding_size
         self._history_field = DEFAULT_HISTORY_FIELD if history_field is None else history_field
         self._distance_metric = DistanceMetric.COSINE_SIM if distance_metric is None else distance_metric
-        logger.debug("Pinecone vector store initialized with namespace: {}".format(namespace))
+        logger.debug("Qdrant vector store initialized for collection {}".format(collection_name))
 
     @property
     def quantizer(self):
@@ -60,13 +61,13 @@ class Pinecone(VectorStore):
     def embedding_size(self):
         return self._embedding_size
 
-    @property
-    def history_field(self):
-        return self._history_field
-
     @embedding_size.setter
     def embedding_size(self, value):
         self._embedding_size = value
+
+    @property
+    def history_field(self):
+        return self._history_field
 
     def train_quantizer(self, vectors: List[Vector]):
         if isinstance(self._quantizer, BaseLossy):
@@ -82,26 +83,29 @@ class Pinecone(VectorStore):
 
     def search(self, query: Query, **kwargs: Any) -> QueryResult:
         """Return docs most similar to query using specified search type."""
-        if query.search_type == SearchType.FETCH:
-            raise ValueError("search_type must be 'default' or 'sparse' to use search method")
-        elif query.search_type == SearchType.SPARSE:
-            raise NotImplementedError("Sparse search is not implemented yet.")
-        else:
-            result = self._index.query(query.embedding.vector,
-                                       top_k=query.top_k,
-                                       filter=query.filter.filter,
-                                       include_metadata=query.include_metadata,
-                                       include_values=query.include_values,
-                                       )
-            ids, scores, vectors, metadata = [], [], [], []
-            for r in result["matches"]:
-                ids.append(r["id"])
-                scores.append(r["score"])
-                vectors.append(Vector(vector=r["values"], dim=len(r["values"]), id=r["id"]))
-                metadata.append(QueryMetadata(id=r["id"], data=r["metadata"]))
+        if query.filter.filter is None:
+            query.filter.filter = {}
 
-            return QueryResult(ids=ids, scores=scores, vectors=vectors, metadata=metadata,
-                               distance_metric=self._distance_metric)
+        result = self._client.search(
+            collection_name=self._collection_name,
+            query_vector=query.embedding.vector,
+            limit=query.top_k,
+            append_payload=query.include_metadata,
+            with_vectors=query.include_values,
+            query_filter=query.filter.filter
+        )
+
+        ids, scores, vectors, metadata = [], [], [], []
+        for r in result:
+            ids.append(str(r.id))
+            scores.append(r.score)
+            if r.vector is not None:
+                vectors.append(Vector(vector=r.vector, dim=len(r.vector), id=str(r.id)))
+            if r.payload is not None:
+                metadata.append(QueryMetadata(id=str(r.id), data=r.payload))
+
+        return QueryResult(ids=ids, scores=scores, vectors=vectors, metadata=metadata,
+                           distance_metric=self._distance_metric)
 
     async def asearch(
             self, query: Query, **kwargs: Any
@@ -118,12 +122,18 @@ class Pinecone(VectorStore):
     ) -> FetchResult:
         """Return docs most similar to query using specified search type."""
         assert query.id is not None, "id must be provided for fetch query"
-        result = self._index.fetch([query.id])
+        id_: Union[str, int]
+        try:
+            id_ = int(query.id)
+        except:
+            id_ = query.id
+
+        result = self._client.retrieve(collection_name=self._collection_name, ids=[id_], with_vectors=True)
         fetches = []
-        for k, v in result["vectors"].items():
-            fetches.append(FetchResult(id=k, vector=Vector(vector=v["values"],
-                                                           dim=len(v["values"]), id=k),
-                                       metadata=QueryMetadata(id=k, data=v["metadata"])))
+        for r in result:
+            fetches.append(FetchResult(id=str(r.id), vector=Vector(vector=r.vector,
+                                                           dim=len(r.vector), id=str(r.id)),
+                                       metadata=QueryMetadata(id=str(r.id), data=r.payload)))
 
         return fetches[0]
 
@@ -161,35 +171,41 @@ class Pinecone(VectorStore):
             self, batch_query: BatchFetchQuery, **kwargs: Any
     ) -> BatchFetchResult:
 
-        ids = [q.id for q in batch_query.fetches]
-        result = self._index.fetch(ids)
-        fetches = [FetchResult(id=k, vector=Vector(vector=v["values"], dim=len(v["values"])),
-                               metadata=QueryMetadata(id="", data=v["metadata"])
-                               )
-                   for k, v in result["vectors"].items()]
+        ids:List[Union[str, int]] = []
+        for q in batch_query.fetches:
+            try:
+                ids.append(int(q.id))
+            except:
+                ids.append(q.id)
+
+        result = self._client.retrieve(collection_name=self._collection_name, ids=ids, with_vectors=True)
+        fetches = []
+        for r in result:
+            fetches.append(FetchResult(id=str(r.id), vector=Vector(vector=r.vector,
+                                                                   dim=len(r.vector), id=str(r.id)),
+                                       metadata=QueryMetadata(id=str(r.id), data=r.payload)))
         return BatchFetchResult(batch_size=batch_query.batch_size, results=fetches)
 
     def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None) -> MetadataFilter:
 
-        filter_ = {
-            self._history_field: {"$nin": ids}
-        }
+        from qdrant_client.http.models import FieldCondition, MatchExcept, Filter
+        import json
+
         if prev_filter is not None:
-            if isinstance(prev_filter, str):
-                raise ValueError("prev_filter must be a dict for Pinecone")
+            raise ValueError("Qdrant implementation currently does not support history filter with previous filter")
 
-            merged = prev_filter.copy()
+        filter_ = Filter(
+            must=
+            [
+                FieldCondition(
+                key=self._history_field,
+                match=MatchExcept(**{"except": ids}))
+            ]
+        ).model_dump_json()
 
-            if self._history_field in prev_filter:
-                merged[self._history_field]["$nin"] = list(set(prev_filter[self._history_field]["$nin"] + filter_[self._history_field]["$nin"]))
-            else:
-                merged[self._history_field] = filter_[self._history_field]
+        filter_ = json.loads(filter_)
+        if "except_" in filter_["must"][0]["match"]:
+            filter_["must"][0]["match"]["except"] = filter_["must"][0]["match"]["except_"]
+            del filter_["must"][0]["match"]["except_"]
 
-            for key, value in filter_.items():
-                if key != self._history_field and key not in merged:
-                    merged[key] = value
-
-            return MetadataFilter(name="history", filter=merged)
-
-        else:
-            return MetadataFilter(name="History", filter=filter_)
+        return MetadataFilter(name="History", filter=filter_)

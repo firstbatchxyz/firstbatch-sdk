@@ -15,7 +15,7 @@ def setup_supabase_client():
     supabase_uri = os.environ["SUPABASE_URL"]
     client = vecs.create_client(supabase_uri)
     dim = 1536
-    return Supabase(client=client, collection_name="default", query_name="match_documents"), dim
+    return Supabase(client=client, collection_name="new", query_name="match_documents"), dim
 
 
 def test_search(setup_supabase_client):

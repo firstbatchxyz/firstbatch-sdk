@@ -36,6 +36,11 @@ class VectorStore(ABC):
     def embedding_size(self, value):
         ...
 
+    @property
+    @abstractmethod
+    def history_field(self):
+        ...
+
     @abstractmethod
     def train_quantizer(self, vectors: List[Vector]):
         ...
@@ -96,7 +101,7 @@ class VectorStore(ABC):
         ...
 
     @abstractmethod
-    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None, id_field: str = "id") -> MetadataFilter:
+    def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None) -> MetadataFilter:
         """Return docs most similar to query using specified search type."""
         ...
 

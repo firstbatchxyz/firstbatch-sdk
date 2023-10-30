@@ -9,7 +9,6 @@ class Config(DataClassJsonMixin):
     """
     Configuration for the vector store.
     """
-    embedding_size: Optional[int] = None
     batch_size: Optional[int] = None
     quantizer_train_size: Optional[int] = None
     quantizer_type: Optional[str] = None
