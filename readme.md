@@ -33,13 +33,19 @@ pip install firstbatch
 
    pinecone.init(api_key=api_key, environment=env)
    index = pinecone.Index("your_index_name")
+   
+   # Init FirstBatch
+   config = Config(batch_size=20)
+   personalized = FirstBatch(api_key=os.environ["FIRSTBATCH_API_KEY"], config=config)
+   
+   personalized.add_vdb("my_db", Pinecone(index, embedding_size=1536))
     ```
 
 ### Personalization
 
 2. **Create a session with an Algorithm suiting your needs**
     ```python 
-   session = personalized.session(algorithm=AlgorithmLabel.AI_AGENTS, vdbid="my_pinecone_db")
+   session = personalized.session(algorithm=AlgorithmLabel.AI_AGENTS, vdbid="my_db")
     ```
 
 3. **Make recommendations**
