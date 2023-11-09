@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any, Optional, List, Dict, Union, cast
 from functools import partial
 import asyncio
 import logging
-from firstbatch.constants import DEFAULT_COLLECTION, DEFAULT_EMBEDDING_SIZE
+from firstbatch.constants import DEFAULT_COLLECTION, DEFAULT_EMBEDDING_SIZE, DEFAULT_HISTORY_FIELD
 from firstbatch.vector_store.schema import MetadataFilter
 from firstbatch.vector_store.base import VectorStore
 from firstbatch.vector_store.schema import FetchQuery, Query, BatchQuery, BatchQueryResult,\
@@ -27,6 +27,7 @@ class Chroma(VectorStore):
         client_settings: Optional[chromadb.config.Settings] = None,
         client: Optional[Any] = None,
         distance_metric: Optional[DistanceMetric] = None,
+        history_field: Optional[str] = None,
         embedding_size: Optional[int] = None
     ) -> None:
         try:
@@ -48,6 +49,7 @@ class Chroma(VectorStore):
 
         self._collection: chromadb.Collection = self._client.get_collection(collection_name)
         self._embedding_size = DEFAULT_EMBEDDING_SIZE if embedding_size is None else embedding_size
+        self._history_field = DEFAULT_HISTORY_FIELD if history_field is None else history_field
         self._distance_metric: DistanceMetric = DistanceMetric.COSINE_SIM if distance_metric is None else distance_metric
         logger.debug("Chrome vector store initialized with collection: {}".format(collection_name))
 
@@ -69,7 +71,7 @@ class Chroma(VectorStore):
 
     @property
     def history_field(self):
-        return "id"
+        return self._history_field
 
     def train_quantizer(self, vectors: List[Vector]):
         if isinstance(self._quantizer, BaseLossy):
@@ -181,31 +183,22 @@ class Chroma(VectorStore):
 
     def history_filter(self, ids: List[str], prev_filter: Optional[Union[Dict, str]] = None) -> MetadataFilter:
 
-        """
+        if isinstance(prev_filter, str):
+            raise ValueError("prev_filter must be a dict for Chroma")
+
         if prev_filter is not None:
             if "$and" not in prev_filter:
                 prev_filter["$and"] = []
             for id in ids:
-                prev_filter["$and"].append({id_field: {"$ne": id}})
+                prev_filter["$and"].append({self._history_field: {"$ne": id}})
 
             return MetadataFilter(name="", filter=prev_filter)
         else:
-            filter_ = {
+            filter_: Dict = {
                 "$and": [
                 ]
             }
             for id in ids:
-                filter_["$and"].append({id_field: {"$ne": id}})
+                filter_["$and"].append({self._history_field: {"$ne": id}})
 
             return MetadataFilter(name="", filter=filter_)
-
-        """
-
-        #filter_ = {
-        #    id_field: {"$nin": ids}
-        #}
-
-        #return MetadataFilter(name="", filter=filter_)
-        raise NotImplementedError("History filter not implemented for Chroma. Please use other vectorStores for "
-                                  "'enable_history = True'.")
-

@@ -9,7 +9,7 @@ import os
 @pytest.fixture
 def setup_typesense_client():
     client = QdrantClient(os.environ["QDRANT_URL"])
-    return Qdrant(client=client, collection_name="default")
+    return Qdrant(client=client, collection_name="farcaster")
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def test_multi_fetch(setup_typesense_client, dim):
 def test_history(setup_typesense_client, dim):
     query = next(generate_query(1, dim, 10, False))
     res = setup_typesense_client.search(query)
-    filt = setup_typesense_client.history_filter([d.data["id"] for d in res.metadata])
+    filt = setup_typesense_client.history_filter([d.data[setup_typesense_client.history_field] for d in res.metadata])
     query.filter = filt
     res_ = setup_typesense_client.search(query)
     assert len(set(res.ids).intersection(set(res_.ids))) == 0

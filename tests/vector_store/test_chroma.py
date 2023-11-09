@@ -16,7 +16,7 @@ def setup_chroma_client():
     collection = "default"
     client = chromadb.PersistentClient(path=path)
     dim = 1536
-    return Chroma(client=client, collection_name=collection), dim
+    return Chroma(client=client, collection_name=collection, history_field="text"), dim
 
 
 def test_search(setup_chroma_client):
@@ -58,4 +58,10 @@ def test_history(setup_chroma_client):
     """
     Not implemented for Chroma
     """
-    assert True
+    chroma_client, dim = setup_chroma_client
+    query = next(generate_query(1, dim, 10, False))
+    res = chroma_client.search(query)
+    filt = chroma_client.history_filter([d.data[chroma_client.history_field] for d in res.metadata])
+    query.filter = filt
+    res_ = chroma_client.search(query)
+    assert len(set(res.ids).intersection(set(res_.ids))) == 0

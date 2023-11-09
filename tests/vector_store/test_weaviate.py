@@ -61,7 +61,7 @@ def test_history(setup_weaviate_client):
     weaviate_client, dim = setup_weaviate_client
     query = next(generate_query(1, dim, 10, False))
     res = weaviate_client.search(query)
-    filt = weaviate_client.history_filter(res.ids)
+    filt = weaviate_client.history_filter([d.data[weaviate_client.history_field] for d in res.metadata])
     query.filter = filt
     res_ = weaviate_client.search(query)
     assert len(set(res.ids).intersection(set(res_.ids))) == 0

@@ -14,8 +14,8 @@ warnings.simplefilter("ignore", ResourceWarning)
 def setup_pinecone_client():
     api_key = os.environ["PINECONE_API_KEY"]
     env =  os.environ["PINECONE_ENV"]
-    index_name = "default"
-    dim = 1536
+    index_name =  os.environ["INDEX_NAME"]
+    dim = 384
     pinecone.init(api_key=api_key, environment=env)
     pinecone.describe_index(index_name)
     index = pinecone.Index(index_name)
@@ -61,7 +61,7 @@ def test_history(setup_pinecone_client):
     pinecone_client, dim = setup_pinecone_client
     query = next(generate_query(1, dim, 10, False))
     res = pinecone_client.search(query)
-    filt = pinecone_client.history_filter(res.ids)
+    filt = pinecone_client.history_filter([d.data[pinecone_client.history_field] for d in res.metadata])
     query.filter = filt
     res_ = pinecone_client.search(query)
     assert len(set(res.ids).intersection(set(res_.ids))) == 0
