@@ -32,6 +32,7 @@ class Chroma(VectorStore):
         try:
             import chromadb
             import chromadb.config
+
         except ImportError:
             raise ImportError(
                 "Could not import chromadb python package. "
@@ -83,6 +84,7 @@ class Chroma(VectorStore):
         return self._quantizer.decompress(vector)
 
     def search(self, query: Query, **kwargs: Any) -> QueryResult:
+        from chromadb.api.types import Where
 
         if query.include_values:
             include = ["metadatas", "documents", "distances", "embeddings"]
