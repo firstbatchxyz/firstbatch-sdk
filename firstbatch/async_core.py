@@ -187,7 +187,7 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
 
         if batch_type == BatchType.RANDOM:
             query = random_batch_request(algo_instance.batch_size, vs.embedding_size, **params.to_dict())
-            await self._update_state(update_state_request(session, next_state.name))
+            await self._update_state(update_state_request(session, next_state.name, batch_type))
             batch_response = await vs.a_multi_search(query)
             ids, batch = algo_instance.random_batch(batch_response, query, **params.to_dict())
 
@@ -204,7 +204,7 @@ class AsyncFirstBatch(AsyncFirstBatchClient):
             if not response.has_embeddings and batch_type == BatchType.PERSONALIZED:
                 self.logger.info("No embeddings found for personalized batch. Switching to random batch.")
                 query = random_batch_request(algo_instance.batch_size, vs.embedding_size, **{"apply_mmr": True})
-                await self._update_state(update_state_request(session, next_state.name))
+                await self._update_state(update_state_request(session, next_state.name, batch_type=batch_type))
                 batch_response = await vs.a_multi_search(query)
                 ids, batch = algo_instance.random_batch(batch_response, query, **params.to_dict())
 
