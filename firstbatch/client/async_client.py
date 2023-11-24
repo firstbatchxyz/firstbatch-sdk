@@ -22,7 +22,7 @@ class AsyncFirstBatchClient(BaseClient):
         }
 
     async def _post_request(self, url: str, data: Dict) -> Dict:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(url, headers=self.headers, json=data)
             return response.json()
 

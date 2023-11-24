@@ -42,6 +42,7 @@ class CreateSessionRequest:
 class UpdateStateRequest:
     session: SessionObject
     state: str
+    batch_type: Optional[str] = None
 
 
 @dataclass
@@ -49,6 +50,7 @@ class SignalRequest:
     session: SessionObject
     vector: List[float]
     signal: float
+    signal_label: str
     state: str
 
 

@@ -21,7 +21,7 @@ def update_state_request(session: SessionObject, state: str) -> UpdateStateReque
 
 def signal_request(session: SessionObject, state: str, signal: SignalObject) -> SignalRequest:
     return SignalRequest(session=session, vector=signal.vector.vector,
-                         signal=signal.action.weight, state=state)
+                         signal=signal.action.weight, state=state, signal_label=signal.action.label)
 
 
 def sampled_batch_request(session: SessionObject, vdbid: str, state:str, n_topics: int) -> SampledBatchRequest:
