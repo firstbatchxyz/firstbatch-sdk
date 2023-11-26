@@ -81,7 +81,7 @@ class FirstBatchClient(BaseClient):
             raise e
 
     def _update_state(self, req: UpdateStateRequest) -> APIResponse:
-        data = {"id": self.__session_wrapper(req.session), "state":req.state}
+        data = {"id": self.__session_wrapper(req.session), "state":req.state, "batch_type": req.batch_type}
         response = requests.post(self.url + "embeddings/update_state", headers=self.headers, json=data)
         self.__error_check(response, "update_state")
         try:
@@ -95,7 +95,8 @@ class FirstBatchClient(BaseClient):
             "id": self.__session_wrapper(req.session),
             "vector": req.vector,
             "signal": req.signal,
-            "state": req.state
+            "state": req.state,
+            "signal_label": req.signal_label
         }
         response = requests.post(self.url + "embeddings/signal", headers=self.headers, json=data)
         self.__error_check(response, "signal")

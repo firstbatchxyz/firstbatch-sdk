@@ -84,7 +84,7 @@ class AsyncFirstBatchClient(BaseClient):
             raise e
 
     async def _update_state(self, req: UpdateStateRequest) -> APIResponse:
-        data = {"id": self.__session_wrapper(req.session), "state": req.state}
+        data = {"id": self.__session_wrapper(req.session), "state": req.state, "batch_type": req.batch_type}
         response = await self._post_request(self.url + "embeddings/update_state", data)
         self.__error_handling(response, "update_state")
         try:
@@ -97,7 +97,8 @@ class AsyncFirstBatchClient(BaseClient):
             "id": self.__session_wrapper(req.session),
             "vector": req.vector,
             "signal": req.signal,
-            "state": req.state
+            "state": req.state,
+            "signal_label": req.signal_label
         }
         response = await self._post_request(self.url + "embeddings/signal", data)
         self.__error_handling(response, "signal")
